@@ -27,6 +27,10 @@ final class VideoGameRepository extends ServiceEntityRepository
     public function getVideoGames(Pagination $pagination, Filter $filter): Paginator
     {
         $queryBuilder = $this->createQueryBuilder('vg')
+            // Important : évite les doublons dus au LEFT JOIN sur les tags.
+            // Sans DISTINCT, un jeu avec plusieurs tags apparaît plusieurs fois
+            // dans la requête SQL, ce qui casse la pagination (ordre et résultats incorrects) donc le test fail
+            ->distinct()
             ->addSelect('t')
             ->leftJoin('vg.tags', 't')
             ->setFirstResult($pagination->getOffset())
