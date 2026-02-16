@@ -14,18 +14,21 @@ final class RegisterTest extends FunctionalTestCase
     {
         $this->get('/auth/register');
 
-        $this->client->submitForm('S\'inscrire', self::getFormData());
+        $formData = self::getFormData();
+        $this->client->submitForm('S\'inscrire', $formData);
 
         self::assertResponseRedirects('/auth/login');
 
-        $user = $this->getEntityManager()->getRepository(User::class)->findOneByEmail('user@email.com');
+        $user = $this->getEntityManager()
+            ->getRepository(User::class)
+            ->findOneByEmail($formData['register[email]']);
 
         $userPasswordHasher = $this->service(UserPasswordHasherInterface::class);
 
         self::assertNotNull($user);
-        self::assertSame('username', $user->getUsername());
-        self::assertSame('user@email.com', $user->getEmail());
-        self::assertTrue($userPasswordHasher->isPasswordValid($user, 'SuperPassword123!'));
+        self::assertSame($formData['register[username]'], $user->getUsername());
+        self::assertSame($formData['register[email]'], $user->getEmail());
+        self::assertTrue($userPasswordHasher->isPasswordValid($user, $formData['register[plainPassword]']));
     }
 
     /**
@@ -52,10 +55,12 @@ final class RegisterTest extends FunctionalTestCase
 
     public static function getFormData(array $overrideData = []): array
     {
-        return [
-            'register[username]' => 'username',
-            'register[email]' => 'user@email.com',
-            'register[plainPassword]' => 'SuperPassword123!'
-        ] + $overrideData;
+        $suffix = bin2hex(random_bytes(4));
+
+        return array_merge([
+            'register[username]' => 'username_'.$suffix,
+            'register[email]' => 'user_'.$suffix.'@email.com',
+            'register[plainPassword]' => 'SuperPassword123!',
+        ], $overrideData);
     }
 }

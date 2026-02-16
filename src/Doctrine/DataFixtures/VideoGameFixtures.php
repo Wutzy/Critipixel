@@ -48,17 +48,9 @@ final class VideoGameFixtures extends Fixture implements DependentFixtureInterfa
             ->setImageSize(2_098_872)
         );
 
-
-
         array_walk($videoGames, static function (VideoGame $videoGame, int $index) use ($tags) {
-            // on choisit un nombre aléatoire entre 2 et 5 pour le nombre de tags d'un jeu
-            $numberOfTags = random_int(2, 5);
-
-            // on mélange pour ne pas avoir les mêmes
-            shuffle($tags);
-
-            for ($i = 0; $i < $numberOfTags; $i++) {
-                $videoGame->getTags()->add($tags[$i]);
+            for ($tagIndex = 0; $tagIndex < 5; $tagIndex++) {
+                $videoGame->getTags()->add($tags[($index + $tagIndex) % count($tags)]);
             }
         });
 
