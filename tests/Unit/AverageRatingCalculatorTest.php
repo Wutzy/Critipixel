@@ -34,6 +34,7 @@ final class AverageRatingCalculatorTest extends TestCase
 
     /**
      * Provides test cases to validate average computation
+     * @return iterable<string, array{0: \App\Model\Entity\VideoGame}>
      * 
      */
     public static function provideVideoGame(): iterable

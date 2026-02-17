@@ -343,6 +343,14 @@ final class FilterTest extends FunctionalTestCase
             }
         }
 
+        $expectedVideoGames = $expectedVideoGames ?? (static function (int $start, int $count): array {
+            $items = [];
+            for ($i = 0; $i < $count; $i++) {
+                $items[] = sprintf('Jeu vidéo %d', $start + $i);
+            }
+            return $items;
+        })($expectedOffsetFrom - 1, $expectedCount);
+
         return [
             'query' => $query,
             'expectedCount' => $expectedCount,
@@ -351,14 +359,7 @@ final class FilterTest extends FunctionalTestCase
             'expectedTotal' => $expectedTotal,
             'expectedPage' => $expectedPage,
             'expectedPaginationLinks' => $expectedPaginationLinks ?? [],
-            'expectedVideoGames' => $expectedVideoGames ?? array_fill_callback(
-                    $expectedOffsetFrom - 1,
-                    $expectedCount,
-                    static fn (int $index) => sprintf(
-                        'Jeu vidéo %d',
-                        $index
-                    )
-                )
+            'expectedVideoGames' => $expectedVideoGames
         ];
     }
 }
