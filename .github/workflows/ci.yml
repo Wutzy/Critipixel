@@ -82,5 +82,12 @@ jobs:
       - name: Run tests
         run: php bin/phpunit
 
+      - name: Warmup cache (dev) for PHPStan
+        env:
+          APP_ENV: dev
+        run: php bin/console cache:warmup --env=dev
+
       - name: Static analysis (PHPStan)
+        env:
+          APP_ENV: dev
         run: php vendor/bin/phpstan analyse
