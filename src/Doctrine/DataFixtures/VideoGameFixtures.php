@@ -1,5 +1,7 @@
 <?php
 
+declare(strict_types=1);
+
 namespace App\Doctrine\DataFixtures;
 
 use App\Model\Entity\Review;
@@ -14,8 +16,6 @@ use Doctrine\Common\DataFixtures\DependentFixtureInterface;
 use Doctrine\Persistence\ObjectManager;
 use Faker\Generator;
 
-use function array_fill_callback;
-
 final class VideoGameFixtures extends Fixture implements DependentFixtureInterface
 {
     public function __construct(
@@ -27,42 +27,55 @@ final class VideoGameFixtures extends Fixture implements DependentFixtureInterfa
 
     public function load(ObjectManager $manager): void
     {
-        // on récupère tous les tags
+        /** @var Tag[] $tags */
         $tags = $manager->getRepository(Tag::class)->findAll();
-        
-        $users = array_chunk(
-            $manager->getRepository(User::class)->findAll(),
-            5
-        );
-        
+        /** @var User[] $allUsers */
+        $allUsers = $manager->getRepository(User::class)->findAll();
+
+        if ($tags === [] || $allUsers === []) {
+            // Fixtures dépendantes manquantes => on évite une erreur (modulo 0)
+            return;
+        }
+
+        /** @var list<list<User>> $usersChunks */
+        $usersChunks = array_chunk($allUsers, 5);
+
         /** @var string $fakeText */
         $fakeText = $this->faker->paragraphs(5, true);
 
-        $videoGames = array_fill_callback(0, 50, fn (int $index): VideoGame => (new VideoGame)
-            ->setTitle(sprintf('Jeu vidéo %d', $index))
-            ->setDescription($this->faker->paragraphs(10, true))
-            ->setReleaseDate(new DateTimeImmutable())
-            ->setTest($fakeText)
-            ->setRating(($index % 5) + 1)
-            ->setImageName(sprintf('video_game_%d.png', $index))
-            ->setImageSize(2_098_872)
-        );
+        /** @var VideoGame[] $videoGames */
+        $videoGames = [];
 
-        array_walk($videoGames, static function (VideoGame $videoGame, int $index) use ($tags) {
+        // Création des jeux
+        for ($index = 0; $index < 50; $index++) {
+            $videoGame = (new VideoGame())
+                ->setTitle(sprintf('Jeu vidéo %d', $index))
+                ->setDescription($this->faker->paragraphs(10, true))
+                ->setReleaseDate(new DateTimeImmutable())
+                ->setTest($fakeText)
+                ->setRating(($index % 5) + 1)
+                ->setImageName(sprintf('video_game_%d.png', $index))
+                ->setImageSize(2_098_872);
+
+            // Ajout déterministe de 5 tags
+            $tagsCount = count($tags);
             for ($tagIndex = 0; $tagIndex < 5; $tagIndex++) {
-                $videoGame->getTags()->add($tags[($index + $tagIndex) % count($tags)]);
+                $videoGame->getTags()->add($tags[($index + $tagIndex) % $tagsCount]);
             }
-        });
 
-        // on ajoute les tags aux jeux
-        array_walk($videoGames, [$manager, 'persist']);
+            $manager->persist($videoGame);
+            $videoGames[] = $videoGame;
+        }
 
         $manager->flush();
 
-        array_walk($videoGames, function (VideoGame $videoGame, int $index) use ($users, $manager) {
-            $filteredUsers = $users[$index % count($users)];
+        // Création des reviews
+        $chunksCount = count($usersChunks);
 
-            foreach ($filteredUsers as $i => $user) {
+        foreach ($videoGames as $index => $videoGame) {
+            $filteredUsers = $usersChunks[$index % $chunksCount];
+
+            foreach ($filteredUsers as $user) {
                 /** @var string $comment */
                 $comment = $this->faker->paragraphs(1, true);
 
@@ -70,18 +83,17 @@ final class VideoGameFixtures extends Fixture implements DependentFixtureInterfa
                     ->setUser($user)
                     ->setVideoGame($videoGame)
                     ->setRating($this->faker->numberBetween(1, 5))
-                    ->setComment($comment)
-                ;
+                    ->setComment($comment);
 
                 $videoGame->getReviews()->add($review);
-
                 $manager->persist($review);
 
                 $this->calculateAverageRating->calculateAverage($videoGame);
                 $this->countRatingsPerValue->countRatingsPerValue($videoGame);
             }
-        });
+        }
 
+        $manager->flush();
     }
 
     public function getDependencies(): array

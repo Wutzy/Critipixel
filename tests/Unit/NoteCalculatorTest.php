@@ -37,6 +37,7 @@ final class NoteCalculatorTest extends TestCase
     /**
      * Provides different scenarios to ensure
      * rating distribution is correctly computed.
+     * @return iterable<string, array{0: \App\Model\Entity\VideoGame}>
      */
     public static function provideVideoGame(): iterable
     {
