@@ -1,0 +1,93 @@
+name: Continuous integration
+
+on:
+  push:
+    branches: ["main", "master"]
+  pull_request:
+
+jobs:
+  ci:
+    name: CI (PHP ${{ matrix.php-versions }})
+    runs-on: ubuntu-latest
+
+    strategy:
+      fail-fast: false
+      matrix:
+        php-versions: ["8.2", "8.3"]
+
+    services:
+      mariadb:
+        image: mariadb:10.3
+        env:
+          MYSQL_DATABASE: criti_pixel_test
+          MYSQL_ALLOW_EMPTY_PASSWORD: "yes"
+          MYSQL_ROOT_PASSWORD: ""
+        ports:
+          - 3306:3306
+        options: >-
+          --health-cmd="mysqladmin ping -h 127.0.0.1 --silent"
+          --health-interval=10s
+          --health-timeout=5s
+          --health-retries=10
+
+    env:
+      APP_ENV: test
+      APP_SECRET: "ci_dummy_secret_123456789012345678901234"
+      DATABASE_URL: mysql://root:@127.0.0.1:3306/criti_pixel_test?serverVersion=mariadb-10.3.16&charset=utf8mb4
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup PHP, with composer and extensions
+        uses: shivammathur/setup-php@v2
+        with:
+          php-version: ${{ matrix.php-versions }}
+          extensions: mbstring, xml, ctype, iconv, intl, pdo_mysql
+          tools: composer:v2
+
+      - name: Get composer cache directory
+        id: composer-cache
+        run: echo "dir=$(composer config cache-files-dir)" >> $GITHUB_OUTPUT
+
+      - name: Cache composer dependencies
+        uses: actions/cache@v4
+        with:
+          path: ${{ steps.composer-cache.outputs.dir }}
+          key: ${{ runner.os }}-php-${{ matrix.php-versions }}-composer-${{ hashFiles('**/composer.lock') }}
+          restore-keys: |
+            ${{ runner.os }}-php-${{ matrix.php-versions }}-composer-
+
+      - name: Install dependencies
+        run: composer install --no-interaction --prefer-dist --no-progress
+
+      - name: Build Sass
+        run: php bin/console sass:build
+
+      - name: Wait for MariaDB
+        run: |
+          for i in {1..30}; do
+            mysqladmin ping -h 127.0.0.1 -uroot --silent && break
+            sleep 2
+          done
+
+      - name: Prepare database (test)
+        run: |
+          php bin/console doctrine:database:drop --if-exists --force --env=test
+          php bin/console doctrine:database:create --env=test
+          php bin/console doctrine:migrations:migrate -n --env=test
+          # Si tu utilises des fixtures, laisse cette ligne. Sinon, tu peux la supprimer.
+          php bin/console doctrine:fixtures:load -n --append --env=test
+
+      - name: Run tests
+        run: php bin/phpunit
+
+      - name: Warmup cache (dev) for PHPStan
+        env:
+          APP_ENV: dev
+        run: php bin/console cache:warmup --env=dev
+
+      - name: Static analysis (PHPStan)
+        env:
+          APP_ENV: dev
+        run: php vendor/bin/phpstan analyse
