@@ -32,6 +32,7 @@ jobs:
 
     env:
       APP_ENV: test
+      APP_SECRET: "ci_dummy_secret_123456789012345678901234"
       DATABASE_URL: mysql://root:@127.0.0.1:3306/criti_pixel_test?serverVersion=mariadb-10.3.16&charset=utf8mb4
 
     steps:

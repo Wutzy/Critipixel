@@ -14,7 +14,7 @@ final class LoginTest extends FunctionalTestCase
         $this->fail('CI marker - should appear if this commit is running');
 
         $this->get('/auth/login');
-
+        $this->assertResponseIsSuccessful();
         $this->client->submitForm('Se connecter', [
             'email' => 'user+1@email.com',
             'password' => 'password'
